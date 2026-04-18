@@ -1,0 +1,41 @@
+# site.yml
+---
+- name: Deploy Monitoring Stack
+  hosts: monitoring_servers
+  become: true
+  vars:
+    # Глобальные переменные
+    clickhouse_endpoint: "http://localhost:8123"
+    
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+  roles:
+    # Зависимость: ClickHouse должен быть установлен первым
+    - role: clickhouse
+      tags: [clickhouse]
+      
+    - role: vector-role
+      tags: [vector]
+      # Передача переменных в роль
+      vector_clickhouse_endpoint: "{{ clickhouse_endpoint }}"
+      
+    - role: lighthouse-role
+      tags: [lighthouse]
+      # Зависимость от ClickHouse для хранения метрик
+      lighthouse_clickhouse_dsn: "{{ clickhouse_endpoint }}"
+
+  post_tasks:
+    - name: Verify services are running
+      systemd:
+        name: "{{ item }}"
+        state: started
+      loop:
+        - clickhouse-server
+        - vector
+        - nginx
+      ignore_errors: true
