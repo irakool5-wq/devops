@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-exchange
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-exchange
+  template:
+    metadata:
+      labels:
+        app: data-exchange
+    spec:
+      containers:
+      - name: busybox
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args: ["while true; do echo \"$(date) - Hello from busybox\" >> /shared/data.txt; sleep 5; done"]
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+      - name: multitool
+        image: praqma/network-multitool
+        command: ["/bin/sh", "-c"]
+        args: ["while [ ! -f /shared/data.txt ]; do sleep 1; done; tail -f /shared/data.txt"]
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+      volumes:
+      - name: shared-data
+        emptyDir: {}
