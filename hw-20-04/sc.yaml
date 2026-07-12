@@ -1,0 +1,82 @@
+---
+# 1. StorageClass
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+provisioner: kubernetes.io/no-provisioner   
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer     
+---
+# 2. PersistentVolume 
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-pv-sc
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage          
+  local:
+    path: /mnt/data-sc                      
+  nodeAffinity:                             
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - vm1                             
+---
+# 3. PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: local-pvc-sc
+spec:
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+  storageClassName: local-storage           
+---
+# 4. Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-exchange-sc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-exchange-sc
+  template:
+    metadata:
+      labels:
+        app: data-exchange-sc
+    spec:
+      containers:
+      - name: busybox
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args: ["while true; do echo \"$(date) - Hello from busybox\" >> /shared/data.txt; sleep 5; done"]
+        volumeMounts:
+        - name: sc-storage
+          mountPath: /shared
+      - name: multitool
+        image: praqma/network-multitool
+        command: ["/bin/sh", "-c"]
+        args: ["while [ ! -f /shared/data.txt ]; do sleep 1; done; tail -f /shared/data.txt"]
+        volumeMounts:
+        - name: sc-storage
+          mountPath: /shared
+      volumes:
+      - name: sc-storage
+        persistentVolumeClaim:
+          claimName: local-pvc-sc
