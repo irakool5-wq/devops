@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: curl-client-pod
-spec:
-  containers:
-  - name: multitool-client
-    image: praqma/network-multitool
-    command: ["sleep", "3600"]
