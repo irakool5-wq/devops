@@ -1,0 +1,62 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: local-pv
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /mnt/data
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: local-pvc
+spec:
+  storageClassName: ""          
+  volumeName: local-pv
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-exchange-pvc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-exchange-pvc
+  template:
+    metadata:
+      labels:
+        app: data-exchange-pvc
+    spec:
+      containers:
+      - name: busybox
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args: ["while true; do echo \"$(date) - Hello from busybox\" >> /shared/data.txt; sleep 5; done"]
+        volumeMounts:
+        - name: pv-storage
+          mountPath: /shared
+      - name: multitool
+        image: praqma/network-multitool
+        command: ["/bin/sh", "-c"]
+        args: ["while [ ! -f /shared/data.txt ]; do sleep 1; done; tail -f /shared/data.txt"]
+        volumeMounts:
+        - name: pv-storage
+          mountPath: /shared
+      volumes:
+      - name: pv-storage
+        persistentVolumeClaim:
+          claimName: local-pvc
