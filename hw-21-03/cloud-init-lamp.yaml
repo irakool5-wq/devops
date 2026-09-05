@@ -1,0 +1,49 @@
+#cloud-config
+users:
+  - name: user
+    groups: sudo
+    shell: /bin/bash
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHT6zHTr+4oX12BeMbvdfnVgOGPmiT+TvUsE1yq+r3ct alavidze@VM1
+
+package_update: true
+packages:
+  - apache2
+
+write_files:
+  - path: /tmp/create_page.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      rm -f /var/www/html/index.html
+      
+      cat > /var/www/html/index.html <<HTMLEOF
+      <!DOCTYPE html>
+      <html lang="ru">
+      <head>
+          <meta charset="UTF-8">
+          <title>Балансировщик нагрузки</title>
+          <style>
+              body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+              img { max-width: 600px; border: 2px solid #333; border-radius: 8px; margin: 20px 0; }
+              .info { background: #f0f0f0; padding: 20px; margin: 20px auto; max-width: 600px; border-radius: 8px; }
+          </style>
+      </head>
+      <body>
+          <h1>Привет от LAMP ВМ!</h1>
+          <div class="info">
+              <p><strong>Hostname:</strong> $(hostname)</p>
+              <p><strong>IP:</strong> $(hostname -I | awk '{print $1}')</p>
+              <p><strong>Дата:</strong> $(date)</p>
+          </div>
+          <h2>Картинка из Object Storage:</h2>
+          <img src="${image_url}" alt="Lab Image">
+          <p><a href="${image_url}">Прямая ссылка на картинку</a></p>
+      </body>
+      </html>
+      HTMLEOF
+
+runcmd:
+  - /tmp/create_page.sh
+  - systemctl restart apache2
